@@ -15,4 +15,21 @@ MIP0505 class is a wrapper of python minimalmodbus module customized for easy im
 
 [Minimalmodbus](https://minimalmodbus.readthedocs.io)
 
+## Typical usage
 
+```python
+import MIP0505
+
+mip = MIP0505(portCOM='COM2',modbusAddress=1)
+
+# --- Example reading registers ---
+alim = mip.read('SUPPLY_VOLTAGE')
+print(f"Supply voltage: {alim/100}V")
+stat = mip.read('STATUS_MOTOR')
+print(f"Status Register: 0x{stat:08x}")
+
+# --- Example writing registers ---
+mip.write('PROFILE_VELOCITY',2400)
+mip.write('TARGET_POS_ABS',-290579)
+
+```
