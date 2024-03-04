@@ -30,6 +30,6 @@ print(f"Status Register: 0x{stat:08x}")
 
 # --- Example writing registers ---
 mip.write('PROFILE_VELOCITY',2400)
-mip.write('TARGET_POS_ABS',-290579)
+mip.write('TARGET_POSITION_ABS',-290579)
 
 ```
