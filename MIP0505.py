@@ -103,10 +103,10 @@ if __name__ == '__main__':
 
 	mip.write('PROFILE_ACCEL',1000)
 	mip.write('TARGET_VELOCITY',1000)
-	pos = mip.read('MOTOR_POS_ABS')
+	pos = mip.read('MOTOR_POSITION_ABS')
 	target = pos + 2000
 	print(f"AutoPosition Mode {pos} -> {target}")
-	mip.write('TARGET_POS_ABS',target)
+	mip.write('TARGET_POSITION_ABS',target)
 
 	sleep(5)
 
