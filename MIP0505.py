@@ -30,7 +30,7 @@ class MIP0505:
 		try:
 			self.MB = minimalmodbus.Instrument(port=self.portCOM,slaveaddress=self.modbusAddress,mode=minimalmodbus.MODE_RTU)
 			self.MB.serial.baudrate = self.baudrate
-		except serial.SerialException:
+		except:
 			logging.error(f"Unreachable RS485 port")
 		
 		#instanciation du dictionnaire de registres		
