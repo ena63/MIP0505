@@ -47,36 +47,43 @@ class MIP0505:
 	"""
 	def read(self, register):
 		match_found = False
+		is_signed = False
+		val = None
 		for regname, regaddr in self.inputRegisters.items():
 			if regname.upper() == register.upper():
 				match_found = True
+				if int(regaddr)<0 :
+					is_signed = True
 				try:
-					val = self.MB.read_long(int(regaddr),byteorder=minimalmodbus.BYTEORDER_LITTLE_SWAP,signed=True,functioncode=4)
+					val = self.MB.read_long(abs(int(regaddr)),byteorder=minimalmodbus.BYTEORDER_LITTLE_SWAP,signed=is_signed,functioncode=4)
 				except Exception as e:
 					logging.error("Modbus Error: %s", e)
-				return val
 		for regname, regaddr in self.holdingRegisters.items():
 			if regname.upper() == register.upper():
 				match_found = True
+				if int(regaddr)<0 :
+					is_signed = True
 				try:
-					val = self.MB.read_long(int(regaddr),byteorder=minimalmodbus.BYTEORDER_LITTLE_SWAP,signed=True,functioncode=3)
+					val = self.MB.read_long(abs(int(regaddr)),byteorder=minimalmodbus.BYTEORDER_LITTLE_SWAP,signed=is_signed,functioncode=3)
 				except Exception as e:
 					logging.error("Modbus Error: %s", e)
-				return val
 		if not match_found:
 			raise Exception(f"Could not find {register} in the dictionnary")
-		return None
+		return val
 
 	"""
 	écriture d'un registre (32bits obligatoire) avec recherche du nom dans le dictionnaire
 	"""
 	def write(self, register, value):
 		match_found = False
+		is_signed = False
 		for regname, regaddr in self.holdingRegisters.items():
 			if regname.upper() == register.upper():
 				match_found = True
+				if int(regaddr)<0 :
+					is_signed = True
 				try:
-					val = self.MB.write_long(registeraddress=int(regaddr),value=int(value),byteorder=minimalmodbus.BYTEORDER_LITTLE_SWAP,signed=True)
+					val = self.MB.write_long(registeraddress=abs(int(regaddr)),value=int(value),byteorder=minimalmodbus.BYTEORDER_LITTLE_SWAP,signed=is_signed)
 				except Exception as e:
 					logging.error("Modbus Error: %s", e)
 		if not match_found:
