@@ -9,7 +9,7 @@
 	-----------------------------------------
 """ 
 __author__ = "Noe Serres"
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 import minimalmodbus
 import configparser
@@ -46,48 +46,54 @@ class MIP0505:
 	relecture d'un registre avec recherche du nom dans le dictionnaire
 	"""
 	def read(self, register):
-		match_found = False
-		is_signed = False
-		val = None
-		for regname, regaddr in self.inputRegisters.items():
+		for regname, data in self.inputRegisters.items():
 			if regname.upper() == register.upper():
 				match_found = True
-				if int(regaddr)<0 :
-					is_signed = True
+				parts = data.split('_')
+				regaddr = int(parts[0])
+				size = int(parts[1]) 
 				try:
-					val = self.MB.read_long(abs(int(regaddr)),byteorder=minimalmodbus.BYTEORDER_LITTLE_SWAP,signed=is_signed,functioncode=4)
+					if size == 16:
+						val = self.MB.read_register(regaddr,signed=(parts[2] =='s'),functioncode=4)
+					if size == 32:	
+						val = self.MB.read_long(regaddr,byteorder=minimalmodbus.BYTEORDER_LITTLE_SWAP,signed=(parts[2] =='s'),functioncode=4)
+					return val
 				except Exception as e:
 					logging.error("Modbus Error: %s", e)
-		for regname, regaddr in self.holdingRegisters.items():
+		for regname, data in self.holdingRegisters.items():
 			if regname.upper() == register.upper():
-				match_found = True
-				if int(regaddr)<0 :
-					is_signed = True
+				parts = data.split('_')
+				regaddr = int(parts[0])
+				size = int(parts[1]) 
 				try:
-					val = self.MB.read_long(abs(int(regaddr)),byteorder=minimalmodbus.BYTEORDER_LITTLE_SWAP,signed=is_signed,functioncode=3)
+					if size == 16:
+						val = self.MB.read_register(regaddr,signed=(parts[2] =='s'),functioncode=3)
+					if size == 32:	
+						val = self.MB.read_long(regaddr,byteorder=minimalmodbus.BYTEORDER_LITTLE_SWAP,signed=(parts[2] =='s'),functioncode=3)
+					return val
 				except Exception as e:
 					logging.error("Modbus Error: %s", e)
-		if not match_found:
-			raise Exception(f"Could not find {register} in the dictionnary")
-		return val
+		raise Exception(f"Could not find {register} in the dictionnary")
+		return None
 
 	"""
 	écriture d'un registre (32bits obligatoire) avec recherche du nom dans le dictionnaire
 	"""
 	def write(self, register, value):
-		match_found = False
-		is_signed = False
-		for regname, regaddr in self.holdingRegisters.items():
+		for regname, data in self.holdingRegisters.items():
 			if regname.upper() == register.upper():
-				match_found = True
-				if int(regaddr)<0 :
-					is_signed = True
+				parts = data.split('_')
+				regaddr = int(parts[0])
+				size = int(parts[1]) 
 				try:
-					val = self.MB.write_long(registeraddress=abs(int(regaddr)),value=int(value),byteorder=minimalmodbus.BYTEORDER_LITTLE_SWAP,signed=is_signed)
+					if size == 16:
+						val = self.MB.write_register(registeraddress=regaddr,value=int(value),signed=(parts[2] =='s'),functioncode=6)
+					if size == 32:	
+						val = self.MB.write_long(registeraddress=regaddr,value=int(value),byteorder=minimalmodbus.BYTEORDER_LITTLE_SWAP,signed=(parts[2] =='s'))
+					return
 				except Exception as e:
 					logging.error("Modbus Error: %s", e)
-		if not match_found:
-			raise Exception(f"Could not find {register} in the dictionnary")
+		raise Exception(f"Could not find {register} in the dictionnary")
 		return
 
 
@@ -98,36 +104,49 @@ if __name__ == '__main__':
 	from time import sleep
 	from random import randint
 	
-	mip = MIP0505(portCOM='COM2',modbusAddress=1)
+	mip = MIP0505(portCOM='COM1',modbusAddress=1)
 	
 	alim = mip.read('SUPPLY_VOLTAGE')
-	print(f"Tension d'alim: {alim}")
+	print(f"Tension d'alim: {alim/100}V")
+	stat = mip.read('STATUS_MOTOR')
+	print(f"Status: 0x{stat:08x}")
 
 
-	mip.write('MODE',0x20000000)	#Mode AutoPosition
-	sleep(0.2)						#Attente pendant le flashage
-	mip.write('DEFAULT',0)			#Reset du défaut "Flashage"
+	mip.write('DEFAULT',0)		#Reset du défaut "Flashage"
+	mip.write('DEFAULT_MEM',0)	#Reset du défaut "Flashage"
 
-	mip.write('PROFILE_ACCEL',1000)
+	pos = mip.read('MOTOR_POS_ABS')
+	print(f"Profile_Position Mode (relative {pos}->{pos+3000})")
+	mip.write('MODES_OF_OP',1)	#Mode AutoPosition
+	mip.write('PROFILE_ACCELERATION',1000)
 	mip.write('TARGET_VELOCITY',1000)
-	pos = mip.read('MOTOR_POSITION_ABS')
+	mip.write('TARGET_POSITION_REL',3000)
+
+	for i in range(40):
+		pos = mip.read('MOTOR_POS_ABS')
+		print(f"{pos}",end=" ",flush=True)
+		sleep(0.2)
+	print("")
+	
+	pos = mip.read('MOTOR_POS_ABS')
 	target = pos + 2000
-	print(f"AutoPosition Mode {pos} -> {target}")
+	print(f"Profile_Position Mode (absolute {pos}->{target})")
 	mip.write('TARGET_POSITION_ABS',target)
 
-	sleep(5)
-
-	mip.write('MODE',0x40000000)	#Mode AutoVelocity (les pas sont générés par une commande)
-	sleep(0.2)						#Attente pendant le flashage
-	mip.write('DEFAULT',0)			#Reset du défaut "Flashage"
-
-	print("AutoVelocity Mode")		#Execution d'une séquence de segments à des vitesses différentes
+	for i in range(35):
+		pos = mip.read('MOTOR_POS_ABS')
+		print(f"{pos}",end=" ",flush=True)
+		sleep(0.2)
+	print("")
+	
+	print("Profile_Velocity Mode")		#Execution d'une séquence de segments à des vitesses différentes
+	mip.write('MODES_OF_OP',3)	#Mode Profile_Velocity (les pas sont générés par une commande)
 	for i in range(7):
 		cns = randint(-1000, 1000)
 		acc = randint(300, 3000)
 		tempo = randint(1000, 10000)/1000
 		print(f"seg:{i} cns:{cns} acc:{acc} tmp:{tempo}")
-		mip.write('PROFILE_ACCEL',acc)
+		mip.write('PROFILE_ACCELERATION',acc)
 		mip.write('TARGET_VELOCITY',cns)
 		sleep(tempo)
 
